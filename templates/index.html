@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical AI Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-gray-300 font-sans">
+
+    <div class="container mx-auto p-6">
+        <div class="flex items-center justify-center mb-8">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-purple-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <h1 class="text-3xl font-bold text-purple-300">MediScan AI Assistant</h1>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Upload Image Card -->
+            <div class="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/20">
+                <h2 class="text-xl font-semibold text-purple-400 mb-4">Upload Medical Image</h2>
+                
+                <div class="border-2 border-dashed border-gray-600 rounded-lg py-10 px-4 text-center hover:border-purple-400 transition-colors cursor-pointer" id="drop-zone">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p class="text-gray-400">Drag & drop or click to upload</p>
+                </div>
+                
+                <input type="file" id="image-upload" accept="image/*" class="hidden" />
+                
+                <div id="image-container" class="hidden mt-4">
+                    <img id="display-image" src="" alt="Uploaded image" class="w-full rounded-lg shadow-lg" />
+                </div>
+            </div>
+
+            <!-- Ask Question Card -->
+            <div class="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/20">
+                <h2 class="text-xl font-semibold text-blue-400 mb-4">Query Your Image</h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label for="query-type" class="block text-sm font-medium text-gray-400 mb-1">Analysis Type</label>
+                        <select id="query-type" class="w-full p-2 bg-gray-800 text-gray-300 rounded-lg border border-gray-700">
+                            <option value="general">General Analysis</option>
+                            <option value="diagnosis">Possible Diagnosis</option>
+                            <option value="treatment">Treatment Options</option>
+                            <option value="explain">Explain Image Content</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="query-input" class="block text-sm font-medium text-gray-400 mb-1">Your Question</label>
+                        <textarea id="query-input" rows="3" placeholder="What would you like to know about this medical image?"
+                            class="w-full p-3 bg-gray-800 text-gray-300 rounded-lg border border-gray-700"></textarea>
+                    </div>
+                    
+                    <button id="submit-query" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-all flex items-center justify-center">
+                        <span>Analyze Image</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- History and Response Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Query History -->
+            <div class="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/20 lg:col-span-1">
+                <h2 class="text-xl font-semibold text-green-400 mb-4">Query History</h2>
+                <div id="history-container" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+                    <!-- History items will be added here dynamically -->
+                    <div class="text-gray-400 text-center text-sm italic">No queries yet</div>
+                </div>
+            </div>
+            
+            <!-- AI Response -->
+            <div class="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/20 lg:col-span-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-green-400">AI Analysis Results</h2>
+                    <div class="flex space-x-2">
+                        <button id="copy-response" class="text-gray-400 hover:text-white p-1 rounded" title="Copy to clipboard">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="response-container" class="hidden">
+                    <div class="bg-gray-800 rounded-lg p-4">
+                        <div id="response-content" class="prose prose-invert max-w-none"></div>
+                    </div>
+                </div>
+                
+                <div id="loading-container" class="hidden">
+                    <div class="flex items-center justify-center p-6">
+                        <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+                    </div>
+                    <p class="text-center text-gray-400">Processing your request...</p>
+                </div>
+                
+                <div id="empty-state" class="text-center py-12">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-16 w-16 text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    <p class="text-gray-400">Upload an image and ask a question to get started</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error-container" class="hidden mt-6 p-4 bg-red-500/90 backdrop-blur-md text-white rounded-lg">
+            <div class="flex items-start">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p id="error-text"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropZone = document.getElementById('drop-zone');
+            const imageUpload = document.getElementById('image-upload');
+            const displayImage = document.getElementById('display-image');
+            const imageContainer = document.getElementById('image-container');
+            const queryType = document.getElementById('query-type');
+            const queryInput = document.getElementById('query-input');
+            const submitQuery = document.getElementById('submit-query');
+            const responseContainer = document.getElementById('response-container');
+            const responseContent = document.getElementById('response-content');
+            const loadingContainer = document.getElementById('loading-container');
+            const emptyState = document.getElementById('empty-state');
+            const historyContainer = document.getElementById('history-container');
+            const errorContainer = document.getElementById('error-container');
+            const errorText = document.getElementById('error-text');
+            const copyResponse = document.getElementById('copy-response');
+            
+            let queryHistory = [];
+            
+            // Click to Upload
+            dropZone.addEventListener('click', () => {
+                imageUpload.click();
+            });
+            
+            // Drag and Drop functionality
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => {
+                    dropZone.classList.add('border-purple-400');
+                });
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => {
+                    dropZone.classList.remove('border-purple-400');
+                });
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const file = dt.files[0];
+                handleFile(file);
+            });
+
+            // Display uploaded image
+            imageUpload.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    handleFile(file);
+                }
+            });
+            
+            function handleFile(file) {
+                if (file) {
+                    // Check if file is an image
+                    if (!file.type.match('image.*')) {
+                        showError('Please upload an image file (JPEG, PNG, etc.)');
+                        return;
+                    }
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        displayImage.src = e.target.result;
+                        imageContainer.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+
+            // Submit Query with enhanced prompt
+            submitQuery.addEventListener('click', async () => {
+                const image = imageUpload.files[0];
+                const query = queryInput.value.trim();
+                const type = queryType.value;
+
+                if (!image) {
+                    showError('Please upload an image first');
+                    return;
+                }
+                
+                if (!query) {
+                    showError('Please enter a question about the image');
+                    return;
+                }
+                
+                // Generate enhanced prompt based on query type
+                let enhancedQuery = generateEnhancedPrompt(query, type);
+                
+                // Show loading state
+                showLoading();
+                
+                const formData = new FormData();
+                formData.append('image', image);
+                formData.append('query', enhancedQuery);
+                formData.append('original_query', query);
+                formData.append('query_type', type);
+
+                try {
+                    submitQuery.disabled = true;
+                    
+                    const response = await fetch('/upload_and_query', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(result.detail || 'An error occurred while processing your request.');
+                    }
+
+                    // Add to history
+                    addToHistory(query, type);
+                    
+                    // Display response
+                    responseContent.innerHTML = marked.parse(result.response);
+                    responseContainer.classList.remove('hidden');
+                    loadingContainer.classList.add('hidden');
+                    emptyState.classList.add('hidden');
+                    errorContainer.classList.add('hidden');
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError(error.message);
+                } finally {
+                    submitQuery.disabled = false;
+                }
+            });
+            
+            // Enhanced prompt generation
+            function generateEnhancedPrompt(query, type) {
+                let enhancedPrompt = '';
+                
+                // Base instruction
+                const baseInstruction = "Analyze this medical image and ";
+                
+                // Type-specific instructions
+                switch(type) {
+                    case 'diagnosis':
+                        enhancedPrompt = `${baseInstruction}provide possible diagnoses based on the visible symptoms or patterns. Consider differential diagnoses, and explain your reasoning. User query: ${query}`;
+                        break;
+                    case 'treatment':
+                        enhancedPrompt = `${baseInstruction}suggest potential treatment options for what is shown. Include typical approaches, medications if relevant, and considerations. User query: ${query}`;
+                        break;
+                    case 'explain':
+                        enhancedPrompt = `${baseInstruction}explain in detail what is shown, including anatomical structures, medical devices, or abnormalities visible. Use medical terminology with explanations. User query: ${query}`;
+                        break;
+                    default: // general
+                        enhancedPrompt = `${baseInstruction}respond to this question: ${query}`;
+                }
+                
+                return enhancedPrompt;
+            }
+            
+            // Add query to history
+            function addToHistory(query, type) {
+                // Clear placeholder if it exists
+                if (historyContainer.querySelector('.text-center')) {
+                    historyContainer.innerHTML = '';
+                }
+                
+                // Create history item
+                const historyItem = document.createElement('div');
+                historyItem.className = 'bg-gray-800/70 p-2 rounded-lg cursor-pointer hover:bg-gray-700/70 transition-colors';
+                
+                // Get type label
+                let typeLabel = '';
+                switch(type) {
+                    case 'diagnosis': typeLabel = 'Diagnosis'; break;
+                    case 'treatment': typeLabel = 'Treatment'; break;
+                    case 'explain': typeLabel = 'Explanation'; break;
+                    default: typeLabel = 'General'; break;
+                }
+                
+                historyItem.innerHTML = `
+                    <div class="text-xs text-blue-400">${typeLabel}</div>
+                    <div class="text-sm">${query.length > 50 ? query.substring(0, 50) + '...' : query}</div>
+                `;
+                
+                // Add to history array and DOM
+                queryHistory.push({ query, type });
+                historyContainer.prepend(historyItem);
+                
+                // Reload the same query when clicking on history item
+                historyItem.addEventListener('click', () => {
+                    queryInput.value = query;
+                    queryType.value = type;
+                });
+            }
+
+            // Copy response to clipboard
+            copyResponse.addEventListener('click', () => {
+                const textToCopy = responseContent.textContent;
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    // Show feedback
+                    copyResponse.classList.add('text-green-400');
+                    setTimeout(() => {
+                        copyResponse.classList.remove('text-green-400');
+                    }, 1000);
+                });
+            });
+            
+            // Show loading state
+            function showLoading() {
+                loadingContainer.classList.remove('hidden');
+                responseContainer.classList.add('hidden');
+                emptyState.classList.add('hidden');
+                errorContainer.classList.add('hidden');
+            }
+
+            // Show error message
+            function showError(message) {
+                errorText.textContent = message;
+                errorContainer.classList.remove('hidden');
+                loadingContainer.classList.add('hidden');
+            }
+        });
+    </script>
+
+</body>
+</html>

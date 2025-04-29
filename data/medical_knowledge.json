@@ -1,0 +1,13 @@
+{
+  "imaging_types": {
+    "x-ray": "Radiographic imaging using X-radiation",
+    "mri": "Magnetic Resonance Imaging",
+    "ct": "Computed Tomography scan",
+    "ultrasound": "Imaging using sound waves"
+  },
+  "common_conditions": {
+    "fracture": "Break in bone continuity",
+    "pneumonia": "Inflammation of lung tissue",
+    "tumor": "Abnormal mass of tissue"
+  }
+}
