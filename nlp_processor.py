@@ -5,6 +5,8 @@ from typing import Dict, List, Optional, Tuple
 import json
 import os
 from collections import Counter
+from medical_ner import extract_medical_entities
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -98,55 +100,111 @@ class NLPProcessor:
             logger.error(f"Error loading knowledge base: {str(e)}")
             return {}
     
-    def enhance_query(self, query: str, query_type: str) -> str:
-        """
-        Enhance a user query using NLP techniques to make it more specific for medical image analysis
+    def detect_query_intent(self, query: str) -> str:
+        """Detect the intent of a medical query."""
+        # Normalize query
+        normalized_query = self._normalize_text(query)
         
-        Args:
-            query: Original user query
-            query_type: Type of query (general, diagnosis, treatment, explain)
-            
-        Returns:
-            Enhanced query with more specific medical context
-        """
+        # Get NER entities
+        ner_result = extract_medical_entities(normalized_query)
+        
+        # Check for diagnostic intent
+        diagnostic_terms = ["diagnose", "diagnosis", "what is", "what could", "identify", "possible condition"]
+        if any(term in normalized_query for term in diagnostic_terms):
+            return "diagnosis"
+        
+        # Check for treatment intent
+        treatment_terms = ["treat", "treatment", "therapy", "management", "handle", "care for"]
+        if any(term in normalized_query for term in treatment_terms):
+            return "treatment"
+        
+        # Check for explanation intent
+        explanation_terms = ["explain", "description", "what does", "show", "tell me about", "details"]
+        if any(term in normalized_query for term in explanation_terms):
+            return "explain"
+        
+        # Count entity types to determine intent
+        entity_types = [entity["label"] for entity in ner_result["entities"]]
+        if "DISEASE" in entity_types and entity_types.count("DISEASE") > 0:
+            return "diagnosis"
+        if "CHEMICAL" in entity_types and entity_types.count("CHEMICAL") > 0:
+            return "treatment"
+        if "ANATOMY" in entity_types and entity_types.count("ANATOMY") > 0:
+            return "explain"
+        
+        # Default to general
+        return "general"
+
+    def generate_semantic_hints(self, ner_result):
+        """Generate semantic hints for the query based on NER results"""
+        hints = []
+        
+        # Add hints based on entity types
+        entity_types = [entity["label"] for entity in ner_result["entities"]]
+        
+        if "DISEASE" in entity_types:
+            hints.append("Focus on identifying signs of disease in the image")
+        
+        if "CHEMICAL" in entity_types:
+            hints.append("Consider treatment implications visible in the image")
+        
+        if "ANATOMY" in entity_types:
+            hints.append("Highlight the relevant anatomical structures")
+        
+        if ner_result["has_uncertainty"]:
+            hints.append("Address the uncertainty in the query by considering multiple possibilities")
+        
+        return hints
+
+    def enhance_query(self, query: str, query_type: str = None) -> str:
+        """Enhanced version that uses NER and intent detection"""
         # Store original query for learning
         self.query_history.append(query)
         
         # Normalize text
         normalized_query = self._normalize_text(query)
         
-        # Extract key terms
+        # Extract entities using medical NER
+        ner_result = extract_medical_entities(normalized_query)
+        
+        # Log entities
+        logger.info(f"NER Results: {ner_result}")
+        
+        # Detect intent if not provided
+        if not query_type:
+            query_type = self.detect_query_intent(normalized_query)
+            logger.info(f"Detected intent: {query_type}")
+        
+        # Generate semantic hints
+        semantic_hints = self.generate_semantic_hints(ner_result)
+        
+        # Extract key terms and other info as before
         medical_terms = self._extract_medical_terms(normalized_query)
-        
-        # Detect image type
         image_type = self._detect_image_type(normalized_query)
-        
-        # Detect condition if mentioned
         condition = self._detect_medical_condition(normalized_query)
         
-        # Select template based on query type and available information
+        # Select and fill template as before
         if query_type in self.ENHANCEMENT_TEMPLATES:
             templates = self.ENHANCEMENT_TEMPLATES[query_type]
             
-            # Choose template based on available extracted information
             if query_type == "treatment" and condition:
-                template = templates[0]  # Use condition-specific template
+                template = templates[0]
             elif image_type:
-                # Use template with image type if available
                 template = next((t for t in templates if "{image_type}" in t), templates[0])
             else:
-                # Default to first template
                 template = templates[0]
             
-            # Fill in template
             enhanced_query = template.format(
                 query=query,
                 image_type=image_type or "medical image",
                 condition=condition or "the condition"
             )
         else:
-            # Fallback to simple enhancement
             enhanced_query = f"Analyze this medical image and {query}"
+        
+        # Add semantic hints
+        if semantic_hints:
+            enhanced_query += f" {' '.join(semantic_hints)}"
         
         logger.info(f"Enhanced query: {enhanced_query}")
         return enhanced_query

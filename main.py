@@ -8,6 +8,7 @@ import argparse
 from PIL import Image
 from dotenv import load_dotenv
 from nlp_processor import NLPProcessor
+from medical_ner import extract_medical_entities
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -47,6 +48,47 @@ SYSTEM_PROMPTS = {
     Use medical terminology with clear explanations for non-medical professionals.
     Include educational information about what is shown and its significance."""
 }
+
+def analyze_query_semantics(query):
+    """
+    Analyze query semantics and return suggestions for improvement
+    
+    Args:
+        query: User query
+        
+    Returns:
+        Dictionary with semantic analysis and suggestions
+    """
+    # Extract entities
+    ner_result = extract_medical_entities(query)
+    
+    # Check for query complexity
+    word_count = len(query.split())
+    is_complex = word_count > 10
+    
+    # Get NLP processor
+    nlp = NLPProcessor()
+    detected_intent = nlp.detect_query_intent(query)
+    
+    # Generate suggestions
+    suggestions = []
+    
+    if ner_result["entity_count"] == 0:
+        suggestions.append("Try adding specific medical terms to improve query precision")
+    
+    if not is_complex:
+        suggestions.append("Consider adding more context or details to your query")
+    
+    if detected_intent == "general":
+        suggestions.append("Using terms like 'diagnose', 'treat', or 'explain' can help focus your query")
+    
+    # Return analysis
+    return {
+        "intent": detected_intent,
+        "complexity": "complex" if is_complex else "simple",
+        "entity_count": ner_result["entity_count"],
+        "suggestions": suggestions
+    }
 
 def process_image(image_path, query, query_type="general"):
     """
@@ -212,13 +254,36 @@ def main():
     parser = argparse.ArgumentParser(description="Medical Image Analysis Tool")
     parser.add_argument("image_path", help="Path to the medical image file")
     parser.add_argument("query", help="Query about the medical image")
-    parser.add_argument("--type", choices=["general", "diagnosis", "treatment", "explain"], 
-                       default="general", help="Type of analysis to perform")
+    parser.add_argument("--type", choices=["general", "diagnosis", "treatment", "explain", "auto"], 
+                        default="auto", help="Type of analysis to perform")
+    parser.add_argument("--analyze-only", action="store_true", 
+                        help="Only analyze the query without processing image")
     
     args = parser.parse_args()
     
+    # If analyze-only flag is set, just analyze the query
+    if args.analyze_only:
+        analysis = analyze_query_semantics(args.query)
+        print("\n=== QUERY ANALYSIS ===\n")
+        print(f"Detected intent: {analysis['intent']}")
+        print(f"Query complexity: {analysis['complexity']}")
+        print(f"Entity count: {analysis['entity_count']}")
+        print("\nSuggestions:")
+        for suggestion in analysis['suggestions']:
+            print(f"- {suggestion}")
+        print("\n=====================\n")
+        return
+    
     # Process the image
-    result = process_image(args.image_path, args.query, args.type)
+    # If auto-detect is enabled, detect query type
+    if args.type == "auto":
+        nlp = NLPProcessor()
+        query_type = nlp.detect_query_intent(args.query)
+        print(f"Auto-detected query type: {query_type}")
+    else:
+        query_type = args.type
+    
+    result = process_image(args.image_path, args.query, query_type)
     
     # Print the result
     if "error" in result:

@@ -95,6 +95,23 @@
                     <div class="bg-gray-800 rounded-lg p-4">
                         <div id="response-content" class="prose prose-invert max-w-none"></div>
                     </div>
+                    
+                    <!-- NLP Analysis Section -->
+                    <div id="nlp-analysis" class="mt-4 p-3 bg-gray-800/50 rounded-lg">
+                        <h3 class="text-sm font-medium text-blue-400 mb-2">NLP Analysis</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div class="bg-gray-800/70 p-2 rounded-lg">
+                                <h4 class="text-xs font-medium text-gray-400">Detected Entities</h4>
+                                <div id="entity-tags" class="flex flex-wrap gap-1 mt-1"></div>
+                            </div>
+                            
+                            <div class="bg-gray-800/70 p-2 rounded-lg">
+                                <h4 class="text-xs font-medium text-gray-400">Query Intent</h4>
+                                <div id="intent-display" class="text-sm mt-1"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div id="loading-container" class="hidden">
@@ -254,6 +271,9 @@
                     emptyState.classList.add('hidden');
                     errorContainer.classList.add('hidden');
                     
+                    // Display NLP results
+                    displayNLPResults(result);
+                    
                 } catch (error) {
                     console.error('Error:', error);
                     showError(error.message);
@@ -261,6 +281,60 @@
                     submitQuery.disabled = false;
                 }
             });
+            
+            // Display NLP results
+            function displayNLPResults(result) {
+                // Display entities
+                const entityTags = document.getElementById('entity-tags');
+entityTags.innerHTML = '';
+
+if (result.entities && result.entities.entities && result.entities.entities.length > 0) {
+    result.entities.entities.forEach(entity => {
+        const tag = document.createElement('span');
+        tag.className = `text-xs px-2 py-0.5 rounded-full ${getEntityColor(entity.label)}`;
+        tag.textContent = `${entity.text} (${entity.label})`;
+        entityTags.appendChild(tag);
+    });
+} else {
+    entityTags.innerHTML = '<span class="text-xs text-gray-500">No entities detected</span>';
+}
+
+                
+                // Display intent
+                const intentDisplay = document.getElementById('intent-display');
+                intentDisplay.innerHTML = '';
+                
+                if (result.detected_intent) {
+                    const intentTag = document.createElement('span');
+                    intentTag.className = `text-xs px-2 py-0.5 rounded-full ${getIntentColor(result.detected_intent)}`;
+                    intentTag.textContent = result.detected_intent.toUpperCase();
+                    intentDisplay.appendChild(intentTag);
+                } else {
+                    intentDisplay.innerHTML = '<span class="text-xs text-gray-500">No intent detected</span>';
+                }
+            }
+            
+            // Get color based on entity type
+            function getEntityColor(entityType) {
+                const colors = {
+                    'DISEASE': 'bg-red-500/50 text-white',
+                    'CHEMICAL': 'bg-blue-500/50 text-white',
+                    'ANATOMY': 'bg-green-500/50 text-white',
+                    'MODALITY': 'bg-purple-500/50 text-white',
+                };
+                return colors[entityType] || 'bg-gray-500/50 text-white';
+            }
+            
+            // Get color based on intent
+            function getIntentColor(intent) {
+                const colors = {
+                    'diagnosis': 'bg-red-500/50 text-white',
+                    'treatment': 'bg-blue-500/50 text-white',
+                    'explain': 'bg-green-500/50 text-white',
+                    'general': 'bg-gray-500/50 text-white',
+                };
+                return colors[intent] || 'bg-gray-500/50 text-white';
+            }
             
             // Enhanced prompt generation
             function generateEnhancedPrompt(query, type) {

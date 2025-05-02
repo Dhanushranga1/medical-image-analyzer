@@ -1,0 +1,6 @@
+.venv/
+en_ner_bc5cdr_md-0.5.1-py3-none-any.whl
+en_ner_bc5cdr_md.whl
+__pycache__/
+data/
+model_temp

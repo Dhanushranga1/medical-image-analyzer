@@ -12,6 +12,8 @@ import logging
 import json
 from typing import Optional
 import time
+from medical_ner import extract_medical_entities, extract_medical_relationships
+from nlp_processor import NLPProcessor
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -62,6 +64,32 @@ SYSTEM_PROMPTS = {
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.post("/analyze_text")
+async def analyze_text(request: Request):
+    try:
+        data = await request.json()
+        text = data.get("text", "")
+        
+        if not text:
+            raise HTTPException(status_code=400, detail="Text is required")
+        
+        # Extract entities and relationships
+        entities = extract_medical_entities(text)
+        relationships = extract_medical_relationships(text)
+        
+        # Detect intent using NLP processor
+        nlp_processor = NLPProcessor()
+        intent = nlp_processor.detect_query_intent(text)
+        
+        return JSONResponse(status_code=200, content={
+            "entities": entities,
+            "relationships": relationships,
+            "detected_intent": intent
+        })
+    except Exception as e:
+        logger.error(f"Error analyzing text: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error analyzing text: {str(e)}")
+
 @app.post("/upload_and_query")
 async def upload_and_query(
     image: UploadFile = File(...),
@@ -86,6 +114,21 @@ async def upload_and_query(
         # Encode image for API request
         encoded_image = base64.b64encode(image_content).decode("utf-8")
         
+        # Enhance NLP processing
+        nlp_processor = NLPProcessor()
+        
+        # If query_type is "auto", detect it automatically
+        if query_type == "auto":
+            query_type = nlp_processor.detect_query_intent(query)
+            logger.info(f"Auto-detected query type: {query_type}")
+        
+        # Get enhanced query
+        enhanced_query = nlp_processor.enhance_query(query, query_type)
+        
+        # Extract medical entities
+        ner_result = extract_medical_entities(enhanced_query)
+        relationships = extract_medical_relationships(query)
+        
         # Get appropriate system prompt based on query type
         system_prompt = SYSTEM_PROMPTS.get(query_type, SYSTEM_PROMPTS["general"])
         
@@ -95,7 +138,7 @@ async def upload_and_query(
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": query},
+                    {"type": "text", "text": enhanced_query},
                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{encoded_image}"}}
                 ]
             }
@@ -122,19 +165,26 @@ async def upload_and_query(
             if response.status_code == 200:
                 result = response.json()
                 answer = result["choices"][0]["message"]["content"]
+                
                 logger.info(f"Processed response: {answer[:100]}...")
                 
                 # Store query and response for potential training
                 store_interaction(
                     query_type=query_type,
                     original_query=original_query or query,
-                    enhanced_query=query,
+                    enhanced_query=enhanced_query,
                     response=answer,
                     model="meta-llama/llama-4-scout-17b-16e-instruct"
                 )
                 
-                # Return response
-                return JSONResponse(status_code=200, content={"response": answer})
+                # Return response with NLP results
+                return JSONResponse(status_code=200, content={
+                    "response": answer,
+                    "entities": ner_result,
+                    "relationships": relationships,
+                    "detected_intent": query_type,
+                    "enhanced_query": enhanced_query
+                })
             else:
                 error_msg = f"API error: {response.status_code} - {response.text}"
                 logger.error(error_msg)
