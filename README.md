@@ -101,4 +101,4 @@ uvicorn app:app --reload
 
 ## License
 
-MIT License © 2025
+GNU GENERAL PUBLIC LICENSE
